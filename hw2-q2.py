@@ -20,38 +20,65 @@ class CNN(nn.Module):
     def __init__(self, dropout_prob, no_maxpool=False):
         super(CNN, self).__init__()
         self.no_maxpool = no_maxpool
+        
         if not no_maxpool:
             # Implementation for Q2.1
-            raise NotImplementedError
+            self.max_pool = nn.MaxPool2d(kernel_size=2, stride=2)
+            #conv1, 8 output channels, kernel 3x3, stride 1, padding to preserve original image size
+            #padding chosen due: stride 1, padding = (kernel - 1)/2 = (3-1)/2 = 1
+            self.conv1 = nn.Conv2d(1, 8, kernel_size = 3, padding = 1)
+        
+            #conv2, 16 output channels, kernel 3x3, stride 1, padding 0
+            self.conv2 = nn.Conv2d(8, 16, kernel_size = 3, padding = 0) 
         else:
+            #conv1, 8 output channels, kernel 3x3, stride 1, padding to preserve original image size
+            #padding chosen due: stride 1, padding = (kernel - 1)/2 = (3-1)/2 = 1
+            self.conv1 = nn.Conv2d(1, 8, kernel_size = 3, stride = 2, padding = 1)
+        
+            #conv2, 16 output channels, kernel 3x3, stride 1, padding 0
+            self.conv2 = nn.Conv2d(8, 16, kernel_size = 3, stride = 2, padding = 0) 
             # Implementation for Q2.2
-            raise NotImplementedError
+        
+        #input features = #output_channels x output_width x output_height
+        #output_width = (input_width + padding_right + padding_left - kernel_width) / stride + 1
+        #output_height = (input_height + padding_height_top + padding_height_bottom - kernel_height) / stride + 1
+        
+        self.fc1_in_features = 16 * 6 * 6 
+        self.fc1 = nn.Linear(self.fc1_in_features, 320)
+        self.fc2 = nn.Linear(320, 120)
+        self.fc3 = nn.Linear(120, 4)
+        self.drop = nn.Dropout(p=dropout_prob)
         
         # Implementation for Q2.1 and Q2.2
-        raise NotImplementedError
+        #raise NotImplementedError
         
     def forward(self, x):
+        
         # input should be of shape [b, c, w, h]
+        x = x.view(x.shape[0], 1, 28, 28)
+          
         # conv and relu layers
+        x = F.relu(self.conv1(x))
 
         # max-pool layer if using it
         if not self.no_maxpool:
-            raise NotImplementedError
+            x = self.max_pool(x)
         
         # conv and relu layers
-        
+        x = F.relu(self.conv2(x))
 
         # max-pool layer if using it
         if not self.no_maxpool:
-            raise NotImplementedError
+            x = self.max_pool(x)
+        
+        x = x.view(-1, self.fc1_in_features)
         
         # prep for fully connected layer + relu
-        
+        x = F.relu(self.fc1(x))
         # drop out
         x = self.drop(x)
-
         # second fully connected layer + relu
-        
+        x = F.relu(self.fc2(x))
         # last fully connected layer
         x = self.fc3(x)
         
@@ -102,13 +129,16 @@ def plot(epochs, plottable, ylabel='', name=''):
 
 
 def get_number_trainable_params(model):
+    #Number of trainable weights = Number of f ilters × ((kernel width × kernel height×number of channels) + bias)
+    model_parameters_cnn = filter(lambda p: p.requires_grad, model.parameters())
+    params_cnn = sum([np.prod(p.size()) for p in model_parameters_cnn])
     ## TO IMPLEMENT - REPLACE return 0
-    return 0
+    return params_cnn
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-epochs', default=20, type=int,
+    parser.add_argument('-epochs', default=15, type=int,
                         help="""Number of epochs to train for. You should not
                         need to change this value for your plots.""")
     parser.add_argument('-batch_size', default=8, type=int,
@@ -119,7 +149,7 @@ def main():
     parser.add_argument('-dropout', type=float, default=0.7)
     parser.add_argument('-optimizer',
                         choices=['sgd', 'adam'], default='sgd')
-    parser.add_argument('-no_maxpool', action='store_true')
+    parser.add_argument('-no_maxpool', action='store_false')
     
     opt = parser.parse_args()
 
